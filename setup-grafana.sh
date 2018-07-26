@@ -10,7 +10,7 @@ origin_master_service=''
 yaml=''
 protocol="https://"
 
-while getopts 'n:s:p:g:y:ae' flag; do
+while getopts 'n:s:p:g:y:ae:o' flag; do
     case "${flag}" in
         n) datasource_name="${OPTARG}" ;;
         s) sa_reader="${OPTARG}" ;;
