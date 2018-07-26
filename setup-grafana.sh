@@ -6,7 +6,7 @@ datasource_name=''
 prometheus_namespace=''
 sa_reader=''
 graph_granularity=''
-origin_master_service='atomic-origin-master-api.service'
+origin_master_service=''
 yaml=''
 protocol="https://"
 
@@ -76,6 +76,7 @@ node::exporter(){
 [[ -n ${sa_reader} ]] || sa_reader="prometheus"
 [[ -n ${prometheus_namespace} ]] || get::namespace
 [[ -n ${graph_granularity} ]]  || graph_granularity="2m"
+[[ -n ${origin_master_service} ]]  || origin_master_service="atomic-origin-master-api.service"
 # TODO: replace with link to origin/examples
 [[ -n ${yaml} ]] || yaml="grafana.yaml"
 ((setoauth)) && set::oauth || echo "skip oauth"
