@@ -6,26 +6,28 @@ datasource_name=''
 prometheus_namespace=''
 sa_reader=''
 graph_granularity=''
+origin_master_service='atomic-origin-master-api.service'
 yaml=''
 protocol="https://"
 
 while getopts 'n:s:p:g:y:ae' flag; do
-  case "${flag}" in
-    n) datasource_name="${OPTARG}" ;;
-    s) sa_reader="${OPTARG}" ;;
-    p) prometheus_namespace="${OPTARG}" ;;
-    g) graph_granularity="${OPTARG}" ;;
-    y) yaml="${OPTARG}" ;;
-    a) setoauth=1 ;;
-    e) node_exporter=1;;
-    *) error "Unexpected option ${flag}" ;;
-  esac
+    case "${flag}" in
+        n) datasource_name="${OPTARG}" ;;
+        s) sa_reader="${OPTARG}" ;;
+        p) prometheus_namespace="${OPTARG}" ;;
+        g) graph_granularity="${OPTARG}" ;;
+        y) yaml="${OPTARG}" ;;
+        a) setoauth=1 ;;
+        o) origin_master_service="${OPTARG}" ;;
+        e) node_exporter=1;;
+        *) error "Unexpected option ${flag}" ;;
+    esac
 done
 
 usage() {
-echo "
+    echo "
 USAGE
- setup-grafana.sh -n <datasource_name> -a [optional: -p <prometheus_namespace> -s <prometheus_serviceaccount> -g <graph_granularity> -y <yaml> -e]
+ setup-grafana.sh -n <datasource_name> -a [optional: -p <prometheus_namespace> -s <prometheus_serviceaccount> -g <graph_granularity> -y <yaml> -o <origin_master_service> -e]
 
  switches:
    -n: grafana datasource name
@@ -34,38 +36,40 @@ USAGE
    -g: specifiy granularity
    -y: specifies the grafana yaml
    -a: deploy oauth proxy for grafana - otherwise skip it (for preconfigured deployment)
+   -o: openshift master api service name (default: atomic-openshift-master-api.service)
    -e: deploy node exporter
 
  note:
     - the project must have view permissions for kube-system
     - the script allow to use high granularity by adding '30s' arg, but it needs tuned scrape prometheus
-"
-exit 1
+    - the openshift master api service can also be origin-master-api.service on your master node
+    "
+    exit 1
 }
 
 get::namespace(){
-if [ -z "$(oc projects |grep openshift-metrics)" ]; then
-    prometheus_namespace="kube-system"
-else
-    prometheus_namespace="openshift-metrics"
-fi
+    if [ -z "$(oc projects | grep openshift-metrics)" ]; then
+        prometheus_namespace="kube-system"
+    else
+        prometheus_namespace="openshift-metrics"
+    fi
 }
 
 set::oauth() {
-touch -a /etc/origin/master/htpasswd
-htpasswd /etc/origin/master/htpasswd grafana
-sed -ie 's|AllowAllPasswordIdentityProvider|HTPasswdPasswordIdentityProvider\n      file: /etc/origin/master/htpasswd|' /etc/origin/master/master-config.yaml
-oc adm policy add-cluster-role-to-user cluster-reader grafana
-systemctl restart atomic-openshift-master-api.service
+    touch -a /etc/origin/master/htpasswd
+    htpasswd /etc/origin/master/htpasswd grafana
+    sed -ie 's|AllowAllPasswordIdentityProvider|HTPasswdPasswordIdentityProvider\n      file: /etc/origin/master/htpasswd|' /etc/origin/master/master-config.yaml
+    oc adm policy add-cluster-role-to-user cluster-reader grafana
+    systemctl restart ${origin_master_service}
 }
 
 # deploy node exporter
 node::exporter(){
-oc annotate ns kube-system openshift.io/node-selector= --overwrite
-sed -i.bak "s/Xs/${graph_granularity}/" "${dashboard_file}"
-sed -i.bak "s/\${DS_PR}/${datasource_name}/" "${dashboard_file}"
-curl --insecure -H "Content-Type: application/json" -u admin:admin "${grafana_host}/api/dashboards/db" -X POST -d "@./node-exporter-full-dashboard.json"
-mv "${dashboard_file}.bak" "${dashboard_file}"
+    oc annotate ns kube-system openshift.io/node-selector= --overwrite
+    sed -i.bak "s/Xs/${graph_granularity}/" "${dashboard_file}"
+    sed -i.bak "s/\${DS_PR}/${datasource_name}/" "${dashboard_file}"
+    curl --insecure -H "Content-Type: application/json" -u admin:admin "${grafana_host}/api/dashboards/db" -X POST -d "@./node-exporter-full-dashboard.json"
+    mv "${dashboard_file}.bak" "${dashboard_file}"
 }
 
 [[ -n ${datasource_name} ]] || usage
