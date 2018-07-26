@@ -10,7 +10,7 @@ origin_master_service=''
 yaml=''
 protocol="https://"
 
-while getopts 'n:s:p:g:y:ae:o' flag; do
+while getopts 'n:s:p:g:y:a:e:o' flag; do
     case "${flag}" in
         n) datasource_name="${OPTARG}" ;;
         s) sa_reader="${OPTARG}" ;;
@@ -82,7 +82,7 @@ node::exporter(){
 ((setoauth)) && set::oauth || echo "skip oauth"
 
 oc new-project grafana
-oc process -f "${yaml}" |oc create -f -
+oc process -f "${yaml}" | oc create -f -
 oc rollout status deployment/grafana
 oc adm policy add-role-to-user view -z grafana -n "${prometheus_namespace}"
 
